@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Anillo Correcto o Intruso</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    background: linear-gradient(160deg, #F5F3FF 0%, #EDE9FE 40%, #FDF2F8 100%);
+    padding: 16px 12px 80px;
+    overflow-x: hidden;
+  }
+
+  /* ========= SCREENS ========= */
+  .screen { display: none; flex-direction: column; align-items: center; }
+  .screen.active { display: flex; }
+
+  /* ========= INTRO ========= */
+  .intro-box {
+    max-width: 440px; width: 100%; background: #fff; border-radius: 20px;
+    padding: 36px 24px; text-align: center; margin-top: 20px;
+    box-shadow: 0 6px 28px rgba(124,58,237,0.10);
+  }
+  .intro-icon { font-size: 52px; margin-bottom: 6px; }
+  .intro-title { font-size: 22px; font-weight: 800; color: #1E1B4B; margin-bottom: 12px; }
+  .intro-desc { font-size: 15px; color: #4B5563; line-height: 1.6; margin-bottom: 24px; }
+  .intro-desc strong { color: #1E1B4B; }
+  .steps { display: flex; flex-direction: column; gap: 10px; margin-bottom: 26px; text-align: left; }
+  .step { display: flex; align-items: center; gap: 10px; font-size: 14px; color: #374151; }
+  .step-num {
+    width: 26px; height: 26px; border-radius: 50%; background: #7C3AED; color: #fff;
+    display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0;
+  }
+
+  /* ========= BUTTONS ========= */
+  .btn-primary {
+    background: linear-gradient(135deg, #7C3AED, #6D28D9); color: #fff; border: none;
+    border-radius: 14px; padding: 14px 36px; font-size: 16px; font-weight: 700;
+    cursor: pointer; box-shadow: 0 4px 16px rgba(124,58,237,0.28);
+    transition: transform 0.15s;
+  }
+  .btn-primary:active { transform: scale(0.97); }
+
+  /* ========= GAME ========= */
+  .game-title { font-size: 20px; font-weight: 800; color: #1E1B4B; text-align: center; margin-bottom: 4px; }
+  .game-sub { font-size: 14px; color: #7C3AED; font-weight: 600; text-align: center; margin-bottom: 16px; }
+
+  /* Drop zones */
+  .zones-row { display: flex; gap: 12px; width: 100%; max-width: 680px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center; }
+  .drop-zone {
+    flex: 1 1 300px; min-height: 140px; border-radius: 16px; padding: 14px;
+    transition: all 0.25s; border: 2.5px dashed;
+  }
+  .zone-correct { background: rgba(16,185,129,0.06); border-color: rgba(16,185,129,0.35); }
+  .zone-intruso { background: rgba(239,68,68,0.05); border-color: rgba(239,68,68,0.30); }
+  .drop-zone.hover { transform: scale(1.02); box-shadow: 0 0 20px rgba(124,58,237,0.15); border-color: #7C3AED; }
+  .zone-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .zone-icon { font-size: 20px; }
+  .zone-label { font-weight: 700; font-size: 14px; color: #1E1B4B; }
+  .zone-count { font-weight: 400; color: #9CA3AF; font-size: 13px; }
+  .zone-cards { display: flex; flex-direction: column; gap: 6px; }
+  .zone-placeholder { color: #9CA3AF; font-size: 13px; font-style: italic; text-align: center; padding: 16px 0; }
+
+  .placed-card {
+    background: #fff; border-radius: 10px; padding: 9px 12px; font-size: 13px;
+    color: #1E1B4B; display: flex; align-items: center; gap: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05); animation: slideIn 0.3s ease;
+  }
+  .placed-card span { flex: 1; }
+  .placed-card .undo-btn {
+    background: none; border: 1px solid #D1D5DB; border-radius: 8px;
+    padding: 2px 8px; font-size: 14px; cursor: pointer; color: #6B7280;
+    flex-shrink: 0;
+  }
+
+  /* Card pool */
+  .pool { width: 100%; max-width: 680px; margin-bottom: 10px; }
+  .pool-label { font-size: 13px; font-weight: 600; color: #6B7280; text-align: center; margin-bottom: 10px; }
+  .pool-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+
+  .card {
+    background: #fff; border-radius: 14px; padding: 16px 14px; font-size: 14px;
+    font-weight: 600; color: #1E1B4B; width: 190px; text-align: center;
+    box-shadow: 0 2px 8px rgba(124,58,237,0.07); cursor: grab;
+    border: 2.5px solid #E9E5FF; line-height: 1.4; user-select: none;
+    touch-action: none; transition: opacity 0.2s;
+  }
+  .card.dragging { opacity: 0.3; }
+
+  /* Ghost element */
+  #drag-ghost {
+    position: fixed; z-index: 1000; pointer-events: none;
+    opacity: 0.92; transform: rotate(2deg) scale(1.06);
+    box-shadow: 0 16px 40px rgba(0,0,0,0.18);
+    border-radius: 14px; background: #fff; padding: 16px 14px;
+    font-size: 14px; font-weight: 600; color: #1E1B4B; text-align: center;
+    line-height: 1.4; border: 2.5px solid #7C3AED;
+  }
+
+  /* Score bar */
+  .score-bar { text-align: center; margin-top: 16px; }
+  .btn-score {
+    background: linear-gradient(135deg, #7C3AED, #6D28D9); color: #fff; border: none;
+    border-radius: 14px; padding: 16px 36px; font-size: 17px; font-weight: 700;
+    cursor: pointer; box-shadow: 0 4px 20px rgba(124,58,237,0.30);
+    animation: pulse 2s infinite;
+  }
+
+  /* ========= RESULTS ========= */
+  .results-box {
+    max-width: 500px; width: 100%; background: #fff; border-radius: 20px;
+    padding: 32px 24px; text-align: center; margin-top: 12px;
+    box-shadow: 0 6px 28px rgba(124,58,237,0.10);
+  }
+  .results-emoji { font-size: 48px; margin-bottom: 4px; }
+  .results-title { font-size: 24px; font-weight: 800; color: #1E1B4B; margin-bottom: 14px; }
+  .score-pill {
+    display: inline-flex; align-items: baseline; gap: 2px;
+    background: linear-gradient(135deg, #F5F3FF, #EDE9FE);
+    border-radius: 16px; padding: 12px 24px;
+  }
+  .score-big { font-size: 42px; font-weight: 900; color: #7C3AED; }
+  .score-small { font-size: 18px; font-weight: 600; color: #9CA3AF; }
+  .score-pct { font-size: 14px; color: #6B7280; margin: 10px 0 22px; }
+
+  .review-section { text-align: left; margin-bottom: 24px; }
+  .review-head { font-size: 14px; font-weight: 700; color: #1E1B4B; margin: 0 0 8px; }
+  .review-head.mt { margin-top: 16px; }
+  .review-row {
+    display: flex; align-items: center; gap: 6px; background: #FAFAFA; border-radius: 10px;
+    padding: 9px 12px; margin-bottom: 5px; font-size: 13px; color: #374151;
+    border-left: 4px solid #ccc;
+  }
+  .review-row span:first-child { flex: 1; }
+  .review-row.ok { border-left-color: #10B981; }
+  .review-row.wrong { border-left-color: #EF4444; }
+
+  /* Confetti */
+  #confetti-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 999; }
+
+  /* Animations */
+  @keyframes slideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  @media (max-width: 500px) {
+    .card { width: calc(50% - 8px); font-size: 13px; padding: 14px 10px; }
+    .drop-zone { flex: 1 1 100%; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ INTRO ============ -->
+<div id="screen-intro" class="screen active">
+  <div class="intro-box" style="animation: fadeIn 0.5s ease">
+    <div class="intro-icon">🎯</div>
+    <h1 class="intro-title">Anillo Correcto o Intruso</h1>
+    <p class="intro-desc">
+      Clasifica cada frase según pertenezca al modelo de <strong>organización circular</strong> o sea un <strong>intruso</strong> que no pertenece.
+    </p>
+    <div class="steps">
+      <div class="step"><span class="step-num">1</span> Arrastra cada tarjeta a una zona</div>
+      <div class="step"><span class="step-num">2</span> Clasifica las 9 tarjetas</div>
+      <div class="step"><span class="step-num">3</span> Presiona "Calificar" para ver tu puntaje</div>
+    </div>
+    <button class="btn-primary" onclick="startGame()">Comenzar juego</button>
+  </div>
+</div>
+
+<!-- ============ GAME ============ -->
+<div id="screen-game" class="screen">
+  <h1 class="game-title">Clasifica cada tarjeta</h1>
+  <p class="game-sub" id="game-hint">Arrastra cada tarjeta a la categoría que corresponda</p>
+
+  <div class="zones-row">
+    <div class="drop-zone zone-correct" id="zone-correcto" data-zone="correcto">
+      <div class="zone-header">
+        <span class="zone-icon">📗</span>
+        <span class="zone-label">Anillo Correcto</span>
+        <span class="zone-count" id="count-correcto">(0)</span>
+      </div>
+      <div class="zone-cards" id="cards-correcto">
+        <p class="zone-placeholder" id="ph-correcto">Arrastra tarjetas aquí</p>
+      </div>
+    </div>
+    <div class="drop-zone zone-intruso" id="zone-intruso" data-zone="intruso">
+      <div class="zone-header">
+        <span class="zone-icon">📕</span>
+        <span class="zone-label">Intruso</span>
+        <span class="zone-count" id="count-intruso">(0)</span>
+      </div>
+      <div class="zone-cards" id="cards-intruso">
+        <p class="zone-placeholder" id="ph-intruso">Arrastra tarjetas aquí</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="pool" id="pool-section">
+    <p class="pool-label" id="pool-label">9 tarjetas restantes</p>
+    <div class="pool-grid" id="pool-grid"></div>
+  </div>
+
+  <div class="score-bar" id="score-bar" style="display:none">
+    <button class="btn-score" onclick="showResults()">✨ Calificar mis respuestas</button>
+  </div>
+</div>
+
+<!-- ============ RESULTS ============ -->
+<div id="screen-results" class="screen">
+  <canvas id="confetti-canvas"></canvas>
+  <div class="results-box" id="results-box" style="animation: fadeIn 0.5s ease"></div>
+</div>
+
+<script>
+const CARDS = [
+  { id:1, text:"El cliente está en el centro de la organización", answer:"correcto" },
+  { id:2, text:"Los equipos se autogestionan por roles", answer:"correcto" },
+  { id:3, text:"La comunicación fluye en todas las direcciones", answer:"correcto" },
+  { id:4, text:"La autoridad se distribuye por propósito, no por cargo", answer:"correcto" },
+  { id:5, text:"El jefe aprueba todas las decisiones importantes", answer:"intruso" },
+  { id:6, text:"La información solo baja de arriba hacia abajo", answer:"intruso" },
+  { id:7, text:"Hay un organigrama vertical con muchos niveles jerárquicos", answer:"intruso" },
+  { id:8, text:"Zappos y Buurtzorg usan este modelo con éxito", answer:"correcto" },
+  { id:9, text:"Solo la alta dirección conoce la visión de la empresa", answer:"intruso" },
+];
+
+let pool = [];
+let placed = { correcto: [], intruso: [] };
+let dragging = null;
+let ghost = null;
+let offsetX = 0, offsetY = 0;
+let hoverZone = null;
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+}
+
+function startGame() {
+  pool = shuffle(CARDS);
+  placed = { correcto: [], intruso: [] };
+  dragging = null;
+  showScreen('game');
+  renderPool();
+  renderZones();
+  document.getElementById('score-bar').style.display = 'none';
+}
+
+function renderPool() {
+  const grid = document.getElementById('pool-grid');
+  grid.innerHTML = '';
+  pool.forEach(card => {
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.textContent = card.text;
+    el.dataset.id = card.id;
+    el.addEventListener('pointerdown', onPointerDown);
+    grid.appendChild(el);
+  });
+  const section = document.getElementById('pool-section');
+  section.style.display = pool.length > 0 ? '' : 'none';
+  document.getElementById('pool-label').textContent = pool.length + ' tarjetas restantes';
+  document.getElementById('score-bar').style.display = pool.length === 0 ? '' : 'none';
+  document.getElementById('game-hint').textContent = pool.length > 0
+    ? 'Arrastra cada tarjeta a la categoría que corresponda'
+    : '¡Todas clasificadas! Califica tus respuestas';
+}
+
+function renderZones() {
+  ['correcto', 'intruso'].forEach(zone => {
+    const container = document.getElementById('cards-' + zone);
+    container.innerHTML = '';
+    const ph = document.createElement('p');
+    ph.className = 'zone-placeholder';
+    ph.id = 'ph-' + zone;
+    ph.textContent = 'Arrastra tarjetas aquí';
+    ph.style.display = placed[zone].length > 0 ? 'none' : '';
+    container.appendChild(ph);
+
+    placed[zone].forEach(card => {
+      const el = document.createElement('div');
+      el.className = 'placed-card';
+      el.innerHTML = `<span>${card.text}</span><button class="undo-btn" data-id="${card.id}" data-zone="${zone}">↩</button>`;
+      el.querySelector('.undo-btn').addEventListener('click', onUndo);
+      container.appendChild(el);
+    });
+
+    document.getElementById('count-' + zone).textContent = '(' + placed[zone].length + ')';
+  });
+}
+
+function onUndo(e) {
+  const id = parseInt(e.target.dataset.id);
+  const zone = e.target.dataset.zone;
+  const card = placed[zone].find(c => c.id === id);
+  if (!card) return;
+  placed[zone] = placed[zone].filter(c => c.id !== id);
+  pool.push(card);
+  renderPool();
+  renderZones();
+}
+
+// ========= DRAG SYSTEM =========
+function onPointerDown(e) {
+  e.preventDefault();
+  const el = e.currentTarget;
+  const id = parseInt(el.dataset.id);
+  const card = pool.find(c => c.id === id);
+  if (!card) return;
+
+  dragging = card;
+  const rect = el.getBoundingClientRect();
+  offsetX = e.clientX - rect.left;
+  offsetY = e.clientY - rect.top;
+
+  el.classList.add('dragging');
+
+  ghost = document.createElement('div');
+  ghost.id = 'drag-ghost';
+  ghost.textContent = card.text;
+  ghost.style.width = rect.width + 'px';
+  ghost.style.left = (e.clientX - offsetX) + 'px';
+  ghost.style.top = (e.clientY - offsetY) + 'px';
+  document.body.appendChild(ghost);
+
+  document.addEventListener('pointermove', onPointerMove);
+  document.addEventListener('pointerup', onPointerUp);
+}
+
+function onPointerMove(e) {
+  if (!ghost) return;
+  ghost.style.left = (e.clientX - offsetX) + 'px';
+  ghost.style.top = (e.clientY - offsetY) + 'px';
+
+  // Detect zone hover
+  let found = null;
+  document.querySelectorAll('.drop-zone').forEach(z => {
+    const r = z.getBoundingClientRect();
+    if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
+      found = z.dataset.zone;
+      z.classList.add('hover');
+    } else {
+      z.classList.remove('hover');
+    }
+  });
+  hoverZone = found;
+}
+
+function onPointerUp(e) {
+  document.removeEventListener('pointermove', onPointerMove);
+  document.removeEventListener('pointerup', onPointerUp);
+
+  if (ghost) { ghost.remove(); ghost = null; }
+  document.querySelectorAll('.card.dragging').forEach(el => el.classList.remove('dragging'));
+  document.querySelectorAll('.drop-zone.hover').forEach(el => el.classList.remove('hover'));
+
+  if (dragging && hoverZone) {
+    placed[hoverZone].push(dragging);
+    pool = pool.filter(c => c.id !== dragging.id);
+    renderPool();
+    renderZones();
+  }
+
+  dragging = null;
+  hoverZone = null;
+}
+
+// ========= RESULTS =========
+function showResults() {
+  let score = 0;
+  placed.correcto.forEach(c => { if (c.answer === 'correcto') score++; });
+  placed.intruso.forEach(c => { if (c.answer === 'intruso') score++; });
+  const total = CARDS.length;
+  const pct = Math.round((score / total) * 100);
+  const isPerfect = score === total;
+
+  let html = `
+    <div class="results-emoji">${isPerfect ? '🏆' : pct >= 70 ? '👏' : '💪'}</div>
+    <h1 class="results-title">${isPerfect ? '¡Perfecto!' : pct >= 70 ? '¡Muy bien!' : 'Sigue practicando'}</h1>
+    <div class="score-pill">
+      <span class="score-big">${score}</span>
+      <span class="score-small">/ ${total}</span>
+    </div>
+    <p class="score-pct">${pct}% de aciertos</p>
+    <div class="review-section">
+      <p class="review-head">📗 Anillo Correcto</p>`;
+
+  placed.correcto.forEach(c => {
+    const ok = c.answer === 'correcto';
+    html += `<div class="review-row ${ok ? 'ok' : 'wrong'}"><span>${c.text}</span><span>${ok ? '✅' : '❌'}</span></div>`;
+  });
+
+  html += `<p class="review-head mt">📕 Intruso</p>`;
+  placed.intruso.forEach(c => {
+    const ok = c.answer === 'intruso';
+    html += `<div class="review-row ${ok ? 'ok' : 'wrong'}"><span>${c.text}</span><span>${ok ? '✅' : '❌'}</span></div>`;
+  });
+
+  html += `</div><button class="btn-primary" onclick="startGame()">Jugar de nuevo</button>`;
+
+  document.getElementById('results-box').innerHTML = html;
+  showScreen('results');
+
+  if (isPerfect) startConfetti();
+}
+
+function startConfetti() {
+  const canvas = document.getElementById('confetti-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const colors = ['#7C3AED','#F59E0B','#10B981','#EF4444','#3B82F6','#EC4899'];
+  const particles = Array.from({length: 100}, () => ({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height - canvas.height,
+    w: Math.random() * 10 + 4, h: Math.random() * 6 + 2,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    vy: Math.random() * 3 + 2, vx: (Math.random() - 0.5) * 2,
+    rot: Math.random() * 360, vr: (Math.random() - 0.5) * 8,
+  }));
+  let frames = 0;
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach(p => {
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot * Math.PI / 180);
+      ctx.fillStyle = p.color; ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+      ctx.restore();
+      p.y += p.vy; p.x += p.vx; p.rot += p.vr;
+      if (p.y > canvas.height + 20) { p.y = -20; p.x = Math.random() * canvas.width; }
+    });
+    frames++;
+    if (frames < 300) requestAnimationFrame(draw);
+    else ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+  draw();
+}
+</script>
+</body>
+</html>
